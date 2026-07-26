@@ -2,12 +2,19 @@ import logging
 
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     MessageHandler,
     filters,
 )
 
-from bot import receive_receipt, start
+from bot import (
+    CALLBACK_CANCEL,
+    CALLBACK_CONFIRM,
+    handle_receipt_action,
+    receive_receipt,
+    start,
+)
 from config import BOT_TOKEN
 
 
@@ -40,6 +47,16 @@ def main() -> None:
         MessageHandler(
             filters.PHOTO,
             receive_receipt,
+        )
+    )
+
+    application.add_handler(
+        CallbackQueryHandler(
+            handle_receipt_action,
+            pattern=(
+                f"^({CALLBACK_CONFIRM}|"
+                f"{CALLBACK_CANCEL})$"
+            ),
         )
     )
 
