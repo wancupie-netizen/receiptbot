@@ -10,8 +10,14 @@ from telegram.ext import (
 
 from bot import (
     CALLBACK_CANCEL,
+    CALLBACK_CATEGORY_PREFIX,
     CALLBACK_CONFIRM,
     CALLBACK_EDIT,
+    CALLBACK_EDIT_BACK,
+    CALLBACK_EDIT_CATEGORY,
+    CALLBACK_EDIT_DATE,
+    CALLBACK_EDIT_MERCHANT,
+    CALLBACK_EDIT_TOTAL,
     handle_receipt_action,
     handle_text_message,
     receive_receipt,
@@ -52,14 +58,24 @@ def main() -> None:
         )
     )
 
+    callback_pattern = (
+        f"^("
+        f"{CALLBACK_CONFIRM}|"
+        f"{CALLBACK_EDIT}|"
+        f"{CALLBACK_CANCEL}|"
+        f"{CALLBACK_EDIT_MERCHANT}|"
+        f"{CALLBACK_EDIT_DATE}|"
+        f"{CALLBACK_EDIT_TOTAL}|"
+        f"{CALLBACK_EDIT_CATEGORY}|"
+        f"{CALLBACK_EDIT_BACK}|"
+        f"{CALLBACK_CATEGORY_PREFIX}.*"
+        f")$"
+    )
+
     application.add_handler(
         CallbackQueryHandler(
             handle_receipt_action,
-            pattern=(
-                f"^({CALLBACK_CONFIRM}|"
-                f"{CALLBACK_EDIT}|"
-                f"{CALLBACK_CANCEL})$"
-            ),
+            pattern=callback_pattern,
         )
     )
 
