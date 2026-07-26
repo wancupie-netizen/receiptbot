@@ -33,10 +33,13 @@ def save_pending_receipt(
             previous_receipt.image_path
         )
 
+        current_image = Path(
+            receipt.image_path
+        )
+
         if (
             previous_image.exists()
-            and previous_image
-            != Path(receipt.image_path)
+            and previous_image != current_image
         ):
             previous_image.unlink()
 
@@ -48,7 +51,9 @@ def get_pending_receipt(
 ) -> PendingReceipt | None:
     """Ambil resit pending berdasarkan Telegram ID."""
 
-    return pending_receipts.get(telegram_id)
+    return pending_receipts.get(
+        telegram_id
+    )
 
 
 def update_pending_message_id(
@@ -57,12 +62,38 @@ def update_pending_message_id(
 ) -> None:
     """Simpan ID mesej preview Telegram."""
 
-    receipt = pending_receipts.get(telegram_id)
+    receipt = pending_receipts.get(
+        telegram_id
+    )
 
     if receipt is None:
         return
 
     receipt.message_id = message_id
+
+
+def update_pending_receipt(
+    telegram_id: int,
+    merchant: str,
+    receipt_date: str,
+    total: float,
+    category: str,
+) -> PendingReceipt | None:
+    """Kemas kini maklumat resit pending."""
+
+    receipt = pending_receipts.get(
+        telegram_id
+    )
+
+    if receipt is None:
+        return None
+
+    receipt.merchant = merchant
+    receipt.receipt_date = receipt_date
+    receipt.total = total
+    receipt.category = category
+
+    return receipt
 
 
 def delete_pending_receipt(
@@ -80,7 +111,9 @@ def delete_pending_receipt(
         return None
 
     if delete_image:
-        image_path = Path(receipt.image_path)
+        image_path = Path(
+            receipt.image_path
+        )
 
         if image_path.exists():
             image_path.unlink()

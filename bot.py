@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -18,6 +19,7 @@ from pending import (
     get_pending_receipt,
     save_pending_receipt,
     update_pending_message_id,
+    update_pending_receipt,
 )
 
 
@@ -27,7 +29,24 @@ TEMP_RECEIPT_FOLDER = Path("temp_receipts")
 TEMP_RECEIPT_FOLDER.mkdir(exist_ok=True)
 
 CALLBACK_CONFIRM = "receipt_confirm"
+CALLBACK_EDIT = "receipt_edit"
 CALLBACK_CANCEL = "receipt_cancel"
+
+EDIT_STEP_MERCHANT = "merchant"
+EDIT_STEP_DATE = "receipt_date"
+EDIT_STEP_TOTAL = "total"
+EDIT_STEP_CATEGORY = "category"
+
+ALLOWED_CATEGORIES = [
+    "Bahan Mentah",
+    "Packaging",
+    "Peralatan",
+    "Penghantaran",
+    "Pemasaran",
+    "Utiliti",
+    "Sewa",
+    "Lain-lain",
+]
 
 
 async def start(
@@ -69,7 +88,9 @@ async def start(
                 "Hantar gambar resit untuk mula."
             )
 
-        await update.message.reply_text(message)
+        await update.message.reply_text(
+            message
+        )
 
     except Exception as error:
         logger.exception(
@@ -87,7 +108,7 @@ async def start(
 
 def build_confirmation_keyboard(
 ) -> InlineKeyboardMarkup:
-    """Bina butang pengesahan resit."""
+    """Bina butang tindakan resit."""
 
     keyboard = [
         [
@@ -96,17 +117,25 @@ def build_confirmation_keyboard(
                 callback_data=CALLBACK_CONFIRM,
             ),
             InlineKeyboardButton(
+                text="✏️ Betulkan",
+                callback_data=CALLBACK_EDIT,
+            ),
+        ],
+        [
+            InlineKeyboardButton(
                 text="❌ Batal",
                 callback_data=CALLBACK_CANCEL,
             ),
-        ]
+        ],
     ]
 
-    return InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup(
+        keyboard
+    )
 
 
 def format_receipt_preview(
-    receipt: ReceiptData,
+    receipt: ReceiptData | PendingReceipt,
 ) -> str:
     """Sediakan teks preview resit."""
 
@@ -135,9 +164,7 @@ def format_confirmed_preview(
         f"💰 Jumlah\nRM{receipt.total:,.2f}\n\n"
         f"📂 Kategori\n{receipt.category}\n"
         "──────────────\n\n"
-        "Data belum disimpan ke Supabase.\n"
-        "Proses simpan akan ditambah dalam "
-        "langkah seterusnya."
+        "Maklumat ini belum disimpan."
     )
 
 
@@ -161,6 +188,16 @@ async def receive_receipt(
             "Maklumat pengguna tidak dapat dibaca."
         )
         return
+
+    context.user_data.pop(
+        "edit_step",
+        None,
+    )
+
+    context.user_data.pop(
+        "edit_data",
+        None,
+    )
 
     status_message = await update.message.reply_text(
         "Gambar resit diterima ✅\n\n"
@@ -216,14 +253,14 @@ async def receive_receipt(
             message_id=status_message.message_id,
         )
 
-        save_pending_receipt(pending_receipt)
-
-        preview = format_receipt_preview(
-            receipt_data
+        save_pending_receipt(
+            pending_receipt
         )
 
         await status_message.edit_text(
-            text=preview,
+            text=format_receipt_preview(
+                receipt_data
+            ),
             reply_markup=build_confirmation_keyboard(),
         )
 
@@ -244,7 +281,10 @@ async def receive_receipt(
             error,
         )
 
-        if file_path is not None and file_path.exists():
+        if (
+            file_path is not None
+            and file_path.exists()
+        ):
             file_path.unlink()
 
         await status_message.edit_text(
@@ -257,7 +297,7 @@ async def handle_receipt_action(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
-    """Urus tindakan Sahkan atau Batal."""
+    """Urus tindakan Sahkan, Betulkan atau Batal."""
 
     query = update.callback_query
 
@@ -292,6 +332,16 @@ async def handle_receipt_action(
             delete_image=True,
         )
 
+        context.user_data.pop(
+            "edit_step",
+            None,
+        )
+
+        context.user_data.pop(
+            "edit_data",
+            None,
+        )
+
         logger.info(
             "Resit pending dibatalkan untuk "
             "Telegram ID: %s",
@@ -304,6 +354,25 @@ async def handle_receipt_action(
         )
         return
 
+    if query.data == CALLBACK_EDIT:
+        context.user_data["edit_step"] = (
+            EDIT_STEP_MERCHANT
+        )
+
+        context.user_data["edit_data"] = {
+            "merchant": receipt.merchant,
+            "receipt_date": receipt.receipt_date,
+            "total": receipt.total,
+            "category": receipt.category,
+        }
+
+        await query.edit_message_text(
+            "✏️ Betulkan maklumat resit\n\n"
+            "Masukkan nama kedai yang betul.\n\n"
+            f"Nama sekarang:\n{receipt.merchant}"
+        )
+        return
+
     if query.data == CALLBACK_CONFIRM:
         logger.info(
             "Resit pending disahkan untuk "
@@ -312,10 +381,191 @@ async def handle_receipt_action(
         )
 
         await query.edit_message_text(
-            format_confirmed_preview(receipt)
+            format_confirmed_preview(
+                receipt
+            )
         )
         return
 
     await query.edit_message_text(
         "Tindakan tidak dikenali."
     )
+
+
+async def handle_text_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    """Urus input pembetulan resit."""
+
+    if (
+        update.message is None
+        or update.message.text is None
+    ):
+        return
+
+    telegram_user = update.effective_user
+
+    if telegram_user is None:
+        return
+
+    edit_step = context.user_data.get(
+        "edit_step"
+    )
+
+    edit_data = context.user_data.get(
+        "edit_data"
+    )
+
+    if not edit_step or not edit_data:
+        await update.message.reply_text(
+            "Hantar gambar resit untuk mula."
+        )
+        return
+
+    user_input = update.message.text.strip()
+
+    if edit_step == EDIT_STEP_MERCHANT:
+        if not user_input:
+            await update.message.reply_text(
+                "Nama kedai tidak boleh kosong."
+            )
+            return
+
+        edit_data["merchant"] = user_input
+        context.user_data["edit_step"] = (
+            EDIT_STEP_DATE
+        )
+
+        await update.message.reply_text(
+            "Masukkan tarikh resit.\n\n"
+            "Format: YYYY-MM-DD\n"
+            "Contoh: 2026-07-25"
+        )
+        return
+
+    if edit_step == EDIT_STEP_DATE:
+        try:
+            datetime.strptime(
+                user_input,
+                "%Y-%m-%d",
+            )
+        except ValueError:
+            await update.message.reply_text(
+                "Format tarikh tidak betul.\n\n"
+                "Gunakan format YYYY-MM-DD.\n"
+                "Contoh: 2026-07-25"
+            )
+            return
+
+        edit_data["receipt_date"] = user_input
+        context.user_data["edit_step"] = (
+            EDIT_STEP_TOTAL
+        )
+
+        await update.message.reply_text(
+            "Masukkan jumlah akhir resit.\n\n"
+            "Contoh: 39.80"
+        )
+        return
+
+    if edit_step == EDIT_STEP_TOTAL:
+        try:
+            total = float(
+                user_input.replace(
+                    "RM",
+                    "",
+                )
+                .replace(
+                    ",",
+                    "",
+                )
+                .strip()
+            )
+        except ValueError:
+            await update.message.reply_text(
+                "Jumlah tidak sah.\n\n"
+                "Masukkan nombor sahaja.\n"
+                "Contoh: 39.80"
+            )
+            return
+
+        if total < 0:
+            await update.message.reply_text(
+                "Jumlah tidak boleh negatif."
+            )
+            return
+
+        edit_data["total"] = total
+        context.user_data["edit_step"] = (
+            EDIT_STEP_CATEGORY
+        )
+
+        categories = "\n".join(
+            f"- {category}"
+            for category in ALLOWED_CATEGORIES
+        )
+
+        await update.message.reply_text(
+            "Masukkan kategori yang betul.\n\n"
+            f"{categories}"
+        )
+        return
+
+    if edit_step == EDIT_STEP_CATEGORY:
+        matched_category = next(
+            (
+                category
+                for category in ALLOWED_CATEGORIES
+                if category.lower()
+                == user_input.lower()
+            ),
+            None,
+        )
+
+        if matched_category is None:
+            categories = "\n".join(
+                f"- {category}"
+                for category in ALLOWED_CATEGORIES
+            )
+
+            await update.message.reply_text(
+                "Kategori tidak dikenali.\n\n"
+                "Pilih salah satu:\n"
+                f"{categories}"
+            )
+            return
+
+        edit_data["category"] = matched_category
+
+        updated_receipt = update_pending_receipt(
+            telegram_id=telegram_user.id,
+            merchant=edit_data["merchant"],
+            receipt_date=edit_data["receipt_date"],
+            total=edit_data["total"],
+            category=edit_data["category"],
+        )
+
+        context.user_data.pop(
+            "edit_step",
+            None,
+        )
+
+        context.user_data.pop(
+            "edit_data",
+            None,
+        )
+
+        if updated_receipt is None:
+            await update.message.reply_text(
+                "Resit sementara tidak dijumpai.\n\n"
+                "Sila hantar semula gambar resit."
+            )
+            return
+
+        await update.message.reply_text(
+            text=format_receipt_preview(
+                updated_receipt
+            ),
+            reply_markup=build_confirmation_keyboard(),
+        )

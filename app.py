@@ -11,7 +11,9 @@ from telegram.ext import (
 from bot import (
     CALLBACK_CANCEL,
     CALLBACK_CONFIRM,
+    CALLBACK_EDIT,
     handle_receipt_action,
+    handle_text_message,
     receive_receipt,
     start,
 )
@@ -55,8 +57,16 @@ def main() -> None:
             handle_receipt_action,
             pattern=(
                 f"^({CALLBACK_CONFIRM}|"
+                f"{CALLBACK_EDIT}|"
                 f"{CALLBACK_CANCEL})$"
             ),
+        )
+    )
+
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            handle_text_message,
         )
     )
 
