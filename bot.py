@@ -58,3 +58,21 @@ async def start(
             "Bot aktif, tetapi akaun anda gagal disimpan.\n"
             "Sila cuba semula."
         )
+
+
+async def receive_receipt(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    """Terima gambar resit daripada pengguna."""
+
+    if update.message is None:
+        return
+
+    if not update.message.photo:
+        return
+
+    await update.message.reply_text(
+        "Gambar resit diterima ✅\n\n"
+        "ReceiptBot akan memproses resit ini."
+    )

@@ -1,8 +1,13 @@
 import logging
 
-from telegram.ext import Application, CommandHandler
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    filters,
+)
 
-from bot import start
+from bot import receive_receipt, start
 from config import BOT_TOKEN
 
 
@@ -13,10 +18,26 @@ logging.basicConfig(
 
 
 def main() -> None:
-    application = Application.builder().token(BOT_TOKEN).build()
+    """Jalankan ReceiptBot."""
+
+    application = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .build()
+    )
 
     application.add_handler(
-        CommandHandler("start", start)
+        CommandHandler(
+            "start",
+            start,
+        )
+    )
+
+    application.add_handler(
+        MessageHandler(
+            filters.PHOTO,
+            receive_receipt,
+        )
     )
 
     print("ReceiptBot sedang berjalan...")
