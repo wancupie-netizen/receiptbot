@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes
 
 from ai import ReceiptData, extract_receipt
 from database import get_or_create_user
+from pending import save_pending_receipt
 
 
 logger = logging.getLogger(__name__)
@@ -58,14 +59,12 @@ async def start(
 
     except Exception as error:
         logger.exception(
-            "Gagal mendapatkan atau mencipta "
-            "pengguna: %s",
+            "Gagal mendapatkan atau mencipta pengguna: %s",
             error,
         )
 
         await update.message.reply_text(
-            "Bot aktif, tetapi akaun anda gagal "
-            "disimpan.\n"
+            "Bot aktif, tetapi akaun anda gagal disimpan.\n"
             "Sila cuba semula."
         )
 
@@ -83,7 +82,8 @@ def format_receipt_preview(
         f"💰 Jumlah\nRM{receipt.total:,.2f}\n\n"
         f"📂 Kategori\n{receipt.category}\n"
         "──────────────\n\n"
-        "Data ini belum disimpan."
+        "Data ini disimpan sementara.\n"
+        "Belum dimasukkan ke rekod perbelanjaan."
     )
 
 
@@ -91,7 +91,7 @@ async def receive_receipt(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
-    """Muat turun dan baca gambar resit."""
+    """Muat turun, baca dan simpan resit sementara."""
 
     if update.message is None:
         return
@@ -139,11 +139,24 @@ async def receive_receipt(
 
         if not receipt_data.is_receipt:
             await status_message.edit_text(
-                "Gambar ini tidak kelihatan "
-                "seperti resit.\n\n"
+                "Gambar ini tidak kelihatan seperti resit.\n\n"
                 "Sila hantar gambar resit yang jelas."
             )
             return
+
+        save_pending_receipt(
+            telegram_id=telegram_user.id,
+            merchant=receipt_data.merchant,
+            receipt_date=receipt_data.receipt_date,
+            total=receipt_data.total,
+            category=receipt_data.category,
+            image_path=file_path,
+        )
+
+        logger.info(
+            "Resit sementara disimpan untuk Telegram ID: %s",
+            telegram_user.id,
+        )
 
         preview = format_receipt_preview(
             receipt_data
