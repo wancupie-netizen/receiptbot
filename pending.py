@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class PendingReceipt(BaseModel):
-    """Data resit yang menunggu pengesahan pengguna."""
+    """Data resit yang menunggu disimpan."""
 
     telegram_id: int
     merchant: str
@@ -14,6 +14,7 @@ class PendingReceipt(BaseModel):
     image_path: str
     chat_id: int
     message_id: int | None = None
+    storage_path: str | None = None
 
 
 pending_receipts: dict[int, PendingReceipt] = {}
@@ -92,6 +93,24 @@ def update_pending_receipt(
     receipt.receipt_date = receipt_date
     receipt.total = total
     receipt.category = category
+
+    return receipt
+
+
+def update_pending_storage_path(
+    telegram_id: int,
+    storage_path: str,
+) -> PendingReceipt | None:
+    """Simpan lokasi gambar dalam Supabase Storage."""
+
+    receipt = pending_receipts.get(
+        telegram_id
+    )
+
+    if receipt is None:
+        return None
+
+    receipt.storage_path = storage_path
 
     return receipt
 

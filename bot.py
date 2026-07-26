@@ -12,7 +12,10 @@ from telegram import (
 from telegram.ext import ContextTypes
 
 from ai import ReceiptData, extract_receipt
-from database import get_or_create_user
+from database import (
+    get_or_create_user,
+    upload_receipt_image,
+)
 from pending import (
     PendingReceipt,
     delete_pending_receipt,
@@ -20,6 +23,7 @@ from pending import (
     save_pending_receipt,
     update_pending_message_id,
     update_pending_receipt,
+    update_pending_storage_path,
 )
 
 
@@ -260,10 +264,10 @@ def format_receipt_preview(
     )
 
 
-def format_confirmed_preview(
+def format_uploaded_preview(
     receipt: PendingReceipt,
 ) -> str:
-    """Sediakan mesej selepas pengguna mengesahkan."""
+    """Paparkan status selepas gambar berjaya di-upload."""
 
     return (
         "✅ Resit telah disahkan\n\n"
@@ -273,7 +277,8 @@ def format_confirmed_preview(
         f"💰 Jumlah\nRM{receipt.total:,.2f}\n\n"
         f"📂 Kategori\n{receipt.category}\n"
         "──────────────\n\n"
-        "Maklumat ini belum disimpan."
+        "Gambar resit telah disimpan dengan selamat.\n"
+        "Rekod perbelanjaan belum dicipta."
     )
 
 
@@ -379,6 +384,7 @@ async def receive_receipt(
             image_path=str(file_path),
             chat_id=chat.id,
             message_id=status_message.message_id,
+            storage_path=None,
         )
 
         save_pending_receipt(pending_receipt)
@@ -474,14 +480,53 @@ async def handle_receipt_action(
     if callback_data == CALLBACK_CONFIRM:
         clear_edit_state(context)
 
-        logger.info(
-            "Resit pending disahkan untuk Telegram ID: %s",
-            telegram_user.id,
-        )
+        try:
+            await query.edit_message_text(
+                "⏳ Menyimpan gambar resit..."
+            )
 
-        await query.edit_message_text(
-            format_confirmed_preview(receipt)
-        )
+            if receipt.storage_path is None:
+                storage_path = await asyncio.to_thread(
+                    upload_receipt_image,
+                    receipt.telegram_id,
+                    receipt.receipt_date,
+                    receipt.image_path,
+                )
+
+                updated_receipt = (
+                    update_pending_storage_path(
+                        telegram_id=telegram_user.id,
+                        storage_path=storage_path,
+                    )
+                )
+
+                if updated_receipt is None:
+                    raise RuntimeError(
+                        "Resit pending hilang selepas upload."
+                    )
+
+                receipt = updated_receipt
+
+            logger.info(
+                "Gambar resit berjaya di-upload: %s",
+                receipt.storage_path,
+            )
+
+            await query.edit_message_text(
+                format_uploaded_preview(receipt)
+            )
+
+        except Exception as error:
+            logger.exception(
+                "Gagal upload gambar resit: %s",
+                error,
+            )
+
+            await query.edit_message_text(
+                "Gambar resit gagal disimpan.\n\n"
+                "Sila cuba hantar semula gambar resit."
+            )
+
         return
 
     if callback_data == CALLBACK_EDIT:
