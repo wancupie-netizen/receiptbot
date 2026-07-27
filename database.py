@@ -338,3 +338,47 @@ def get_dashboard_summary(
         "top_category": top_category,
         "top_category_total": top_category_total,
     }
+
+
+def get_recent_receipts(
+    telegram_id: int,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Dapatkan resit terkini pengguna."""
+
+    user = get_user_by_telegram_id(
+        telegram_id
+    )
+
+    user_id = user.get("id")
+
+    if user_id is None:
+        raise RuntimeError(
+            "User ID tidak dijumpai."
+        )
+
+    safe_limit = max(
+        1,
+        min(limit, 10),
+    )
+
+    response = (
+        supabase.table("receipts")
+        .select(
+            "id,merchant,total,"
+            "receipt_date,category,created_at"
+        )
+        .eq("user_id", user_id)
+        .order(
+            "receipt_date",
+            desc=True,
+        )
+        .order(
+            "created_at",
+            desc=True,
+        )
+        .limit(safe_limit)
+        .execute()
+    )
+
+    return response.data or []
