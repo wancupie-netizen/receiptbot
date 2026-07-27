@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class PendingReceipt(BaseModel):
-    """Data resit yang menunggu disimpan."""
+    """Data resit yang menunggu proses selesai."""
 
     telegram_id: int
     merchant: str
@@ -15,6 +15,7 @@ class PendingReceipt(BaseModel):
     chat_id: int
     message_id: int | None = None
     storage_path: str | None = None
+    receipt_id: int | None = None
 
 
 pending_receipts: dict[int, PendingReceipt] = {}
@@ -111,6 +112,24 @@ def update_pending_storage_path(
         return None
 
     receipt.storage_path = storage_path
+
+    return receipt
+
+
+def update_pending_receipt_id(
+    telegram_id: int,
+    receipt_id: int,
+) -> PendingReceipt | None:
+    """Simpan ID rekod receipts yang telah dicipta."""
+
+    receipt = pending_receipts.get(
+        telegram_id
+    )
+
+    if receipt is None:
+        return None
+
+    receipt.receipt_id = receipt_id
 
     return receipt
 

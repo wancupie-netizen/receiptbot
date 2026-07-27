@@ -1,16 +1,24 @@
-import json
+import base64
+import logging
 from pathlib import Path
 from typing import Literal
 
-from google import genai
-from google.genai import types
+from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from config import GEMINI_API_KEY, GEMINI_MODEL
+from config import (
+    OPENAI_API_KEY,
+    OPENAI_MODEL,
+)
 
 
-client = genai.Client(
-    api_key=GEMINI_API_KEY,
+logger = logging.getLogger(__name__)
+
+
+client = OpenAI(
+    api_key=OPENAI_API_KEY,
+    timeout=30.0,
+    max_retries=1,
 )
 
 
@@ -27,10 +35,12 @@ ReceiptCategory = Literal[
 
 
 class ReceiptData(BaseModel):
-    """Struktur tetap hasil bacaan AI."""
+    """Struktur tetap hasil bacaan resit."""
 
     is_receipt: bool = Field(
-        description="True jika gambar ialah resit pembelian."
+        description=(
+            "True jika gambar ialah resit pembelian."
+        )
     )
 
     merchant: str = Field(
@@ -42,7 +52,7 @@ class ReceiptData(BaseModel):
 
     receipt_date: str = Field(
         description=(
-            "Tarikh dalam format YYYY-MM-DD. "
+            "Tarikh transaksi dalam format YYYY-MM-DD. "
             "Gunakan 'Tidak pasti' jika tidak jelas."
         )
     )
@@ -55,12 +65,16 @@ class ReceiptData(BaseModel):
     )
 
     category: ReceiptCategory = Field(
-        description="Kategori perbelanjaan paling sesuai."
+        description=(
+            "Kategori perbelanjaan yang paling sesuai."
+        )
     )
 
 
-def get_mime_type(image_path: Path) -> str:
-    """Tentukan MIME type imej."""
+def get_mime_type(
+    image_path: Path,
+) -> str:
+    """Tentukan MIME type berdasarkan extension."""
 
     extension = image_path.suffix.lower()
 
@@ -79,33 +93,31 @@ def get_mime_type(image_path: Path) -> str:
     )
 
 
-def extract_receipt(
+def encode_image(
     image_path: Path,
-) -> ReceiptData:
-    """Baca gambar resit menggunakan Gemini."""
+) -> str:
+    """Tukar imej kepada Base64."""
 
-    if not image_path.exists():
-        raise FileNotFoundError(
-            f"Fail gambar tidak dijumpai: {image_path}"
-        )
+    with image_path.open("rb") as image_file:
+        return base64.b64encode(
+            image_file.read()
+        ).decode("utf-8")
 
-    image_bytes = image_path.read_bytes()
-    mime_type = get_mime_type(image_path)
 
-    prompt = """
-Anda ialah pembaca resit untuk home bakery dan
-small business di Malaysia.
+def build_prompt() -> str:
+    """Bina arahan tetap untuk pembacaan resit."""
 
-Analisis gambar ini dengan teliti.
+    return """
+Baca gambar resit ini dengan teliti.
 
-Tugas:
-1. Tentukan sama ada gambar ini ialah resit.
-2. Kenal pasti nama kedai.
-3. Kenal pasti tarikh transaksi.
-4. Kenal pasti jumlah akhir yang dibayar.
-5. Pilih kategori paling sesuai.
+Ekstrak:
+1. Sama ada gambar benar-benar resit.
+2. Nama kedai atau merchant.
+3. Tarikh transaksi.
+4. Jumlah akhir yang dibayar.
+5. Kategori perbelanjaan.
 
-Kategori dibenarkan:
+Kategori yang dibenarkan:
 - Bahan Mentah
 - Packaging
 - Peralatan
@@ -117,41 +129,107 @@ Kategori dibenarkan:
 
 Peraturan:
 - Jangan mereka-reka maklumat.
+- Semak digit tahun dengan sangat teliti.
 - Tarikh mesti dalam format YYYY-MM-DD.
-- Jika merchant tidak jelas, guna "Tidak pasti".
+- Jika nama kedai tidak jelas, guna "Tidak pasti".
 - Jika tarikh tidak jelas, guna "Tidak pasti".
 - Jika jumlah tidak jelas, guna 0.
+- Gunakan jumlah akhir selepas cukai atau diskaun.
 - Jika gambar bukan resit, is_receipt mesti false.
-"""
+""".strip()
 
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=[
-            prompt,
-            types.Part.from_bytes(
-                data=image_bytes,
-                mime_type=mime_type,
-            ),
-        ],
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_json_schema=(
-                ReceiptData.model_json_schema()
-            ),
-            temperature=0,
-        ),
-    )
 
-    if not response.text:
-        raise RuntimeError(
-            "Gemini tidak memulangkan respons teks."
+def extract_receipt(
+    image_path: Path,
+) -> ReceiptData:
+    """Baca gambar resit menggunakan OpenAI Vision."""
+
+    if not image_path.exists():
+        raise FileNotFoundError(
+            f"Fail gambar tidak dijumpai: {image_path}"
         )
 
+    base64_image = encode_image(
+        image_path
+    )
+
+    mime_type = get_mime_type(
+        image_path
+    )
+
+    data_url = (
+        f"data:{mime_type};base64,{base64_image}"
+    )
+
+    logger.info(
+        "Menghantar gambar ke OpenAI. "
+        "Model: %s | Saiz: %s bytes",
+        OPENAI_MODEL,
+        image_path.stat().st_size,
+    )
+
     try:
-        raw_data = json.loads(response.text)
-    except json.JSONDecodeError as error:
+        response = client.responses.parse(
+            model=OPENAI_MODEL,
+            input=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Anda ialah sistem pembaca resit "
+                        "untuk home bakery dan small "
+                        "business di Malaysia. "
+                        "Utamakan ketepatan merchant, "
+                        "tarikh dan jumlah akhir."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": build_prompt(),
+                        },
+                        {
+                            "type": "input_image",
+                            "image_url": data_url,
+                            "detail": "high",
+                        },
+                    ],
+                },
+            ],
+            text_format=ReceiptData,
+            max_output_tokens=300,
+        )
+
+    except Exception as error:
+        logger.exception(
+            "OpenAI gagal memproses gambar: %s",
+            error,
+        )
+
         raise RuntimeError(
-            f"Respons Gemini bukan JSON sah: {response.text}"
+            "OpenAI gagal membaca resit."
         ) from error
 
-    return ReceiptData.model_validate(raw_data)
+    receipt_data = response.output_parsed
+
+    if receipt_data is None:
+        logger.error(
+            "OpenAI tidak memulangkan structured output. "
+            "Response ID: %s",
+            response.id,
+        )
+
+        raise RuntimeError(
+            "OpenAI tidak memulangkan data resit."
+        )
+
+    logger.info(
+        "Respons OpenAI diterima. "
+        "Merchant: %s | Tarikh: %s | Jumlah: %.2f",
+        receipt_data.merchant,
+        receipt_data.receipt_date,
+        receipt_data.total,
+    )
+
+    return receipt_data

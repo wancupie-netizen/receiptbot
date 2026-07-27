@@ -63,6 +63,27 @@ def get_or_create_user(
     return new_user.data[0], True
 
 
+def get_user_by_telegram_id(
+    telegram_id: int,
+) -> dict[str, Any]:
+    """Cari pengguna berdasarkan Telegram ID."""
+
+    response = (
+        supabase.table("users")
+        .select("*")
+        .eq("telegram_id", telegram_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not response.data:
+        raise RuntimeError(
+            "Pengguna tidak dijumpai dalam Supabase."
+        )
+
+    return response.data[0]
+
+
 def build_receipt_storage_path(
     telegram_id: int,
     receipt_date: str,
@@ -166,3 +187,49 @@ def upload_receipt_image(
         )
 
     return storage_path
+
+
+def create_receipt(
+    telegram_id: int,
+    merchant: str,
+    receipt_date: str,
+    total: float,
+    category: str,
+    storage_path: str,
+) -> dict[str, Any]:
+    """Simpan rekod perbelanjaan ke jadual receipts."""
+
+    user = get_user_by_telegram_id(
+        telegram_id
+    )
+
+    user_id = user.get("id")
+
+    if user_id is None:
+        raise RuntimeError(
+            "User ID tidak dijumpai."
+        )
+
+    response = (
+        supabase.table("receipts")
+        .insert(
+            {
+                "user_id": user_id,
+                "merchant": merchant,
+                "receipt_date": receipt_date,
+                "total": total,
+                "category": category,
+                "image_url": storage_path,
+                "raw_text": None,
+            }
+        )
+        .execute()
+    )
+
+    if not response.data:
+        raise RuntimeError(
+            "Supabase tidak memulangkan "
+            "rekod resit yang baharu."
+        )
+
+    return response.data[0]

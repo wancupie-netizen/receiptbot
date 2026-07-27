@@ -7,14 +7,19 @@ load_dotenv()
 
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SECRET_KEY = os.getenv(
     "SUPABASE_SECRET_KEY"
 )
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv(
-    "GEMINI_MODEL",
-    "gemini-2.5-flash",
+
+OPENAI_API_KEY = os.getenv(
+    "OPENAI_API_KEY"
+)
+
+OPENAI_MODEL = os.getenv(
+    "OPENAI_MODEL",
+    "gpt-4.1-mini",
 )
 
 
@@ -34,7 +39,8 @@ if not SUPABASE_SECRET_KEY:
         "dalam fail .env"
     )
 
-if not GEMINI_API_KEY:
+if not OPENAI_API_KEY:
     raise ValueError(
-        "GEMINI_API_KEY tidak dijumpai dalam fail .env"
+        "OPENAI_API_KEY tidak dijumpai "
+        "dalam fail .env"
     )
