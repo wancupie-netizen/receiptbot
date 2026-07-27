@@ -9,6 +9,7 @@ from telegram.ext import (
     filters,
 )
 
+from account import account_command
 from bot import (
     CALLBACK_CANCEL,
     CALLBACK_CATEGORY_PREFIX,
@@ -26,6 +27,7 @@ from bot import (
 )
 from config import BOT_TOKEN
 from dashboard import dashboard_command
+from help import help_command
 from receipts import receipts_command
 from summary import summary_command
 
@@ -60,6 +62,14 @@ async def setup_bot_commands(
         BotCommand(
             command="summary",
             description="Lihat ringkasan bulan ini",
+        ),
+        BotCommand(
+            command="account",
+            description="Lihat maklumat akaun",
+        ),
+        BotCommand(
+            command="help",
+            description="Lihat panduan penggunaan",
         ),
     ]
 
@@ -103,6 +113,20 @@ def main() -> None:
         CommandHandler(
             "summary",
             summary_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "account",
+            account_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "help",
+            help_command,
         )
     )
 

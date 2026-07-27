@@ -490,3 +490,67 @@ def get_monthly_category_summary(
         "receipt_count": len(receipts),
         "categories": categories,
     }
+
+
+def get_account_summary(
+    telegram_id: int,
+    today: date,
+) -> dict[str, Any]:
+    """Dapatkan maklumat akaun dan penggunaan resit."""
+
+    user = get_user_by_telegram_id(
+        telegram_id
+    )
+
+    user_id = user.get("id")
+
+    if user_id is None:
+        raise RuntimeError(
+            "User ID tidak dijumpai."
+        )
+
+    first_day = today.replace(
+        day=1
+    )
+
+    monthly_response = (
+        supabase.table("receipts")
+        .select("id")
+        .eq("user_id", user_id)
+        .gte(
+            "receipt_date",
+            first_day.isoformat(),
+        )
+        .lte(
+            "receipt_date",
+            today.isoformat(),
+        )
+        .execute()
+    )
+
+    all_receipts_response = (
+        supabase.table("receipts")
+        .select("id")
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    monthly_receipts = (
+        monthly_response.data or []
+    )
+
+    all_receipts = (
+        all_receipts_response.data or []
+    )
+
+    return {
+        "user": user,
+        "month_receipt_count": len(
+            monthly_receipts
+        ),
+        "total_receipt_count": len(
+            all_receipts
+        ),
+        "plan": "Free",
+        "status": "Aktif",
+    }
