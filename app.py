@@ -24,6 +24,7 @@ from bot import (
     start,
 )
 from config import BOT_TOKEN
+from dashboard import dashboard_command
 
 
 logging.basicConfig(
@@ -48,6 +49,13 @@ def main() -> None:
         CommandHandler(
             "start",
             start,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "dashboard",
+            dashboard_command,
         )
     )
 

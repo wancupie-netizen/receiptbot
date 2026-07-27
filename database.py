@@ -1,5 +1,6 @@
 import mimetypes
-from datetime import datetime
+from collections import defaultdict
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -89,7 +90,7 @@ def build_receipt_storage_path(
     receipt_date: str,
     image_path: Path,
 ) -> str:
-    """Bina lokasi fail yang tersusun dalam Storage."""
+    """Bina lokasi fail tersusun dalam Storage."""
 
     try:
         parsed_date = datetime.strptime(
@@ -233,3 +234,107 @@ def create_receipt(
         )
 
     return response.data[0]
+
+
+def get_dashboard_summary(
+    telegram_id: int,
+    today: date,
+) -> dict[str, Any]:
+    """Kira ringkasan perbelanjaan bulan semasa."""
+
+    user = get_user_by_telegram_id(
+        telegram_id
+    )
+
+    user_id = user.get("id")
+
+    if user_id is None:
+        raise RuntimeError(
+            "User ID tidak dijumpai."
+        )
+
+    first_day = today.replace(
+        day=1
+    )
+
+    response = (
+        supabase.table("receipts")
+        .select(
+            "id,total,category,receipt_date"
+        )
+        .eq("user_id", user_id)
+        .gte(
+            "receipt_date",
+            first_day.isoformat(),
+        )
+        .lte(
+            "receipt_date",
+            today.isoformat(),
+        )
+        .order(
+            "receipt_date",
+            desc=True,
+        )
+        .execute()
+    )
+
+    receipts = response.data or []
+
+    today_total = 0.0
+    month_total = 0.0
+
+    category_totals: defaultdict[
+        str,
+        float,
+    ] = defaultdict(float)
+
+    for receipt in receipts:
+        raw_total = receipt.get(
+            "total",
+            0,
+        )
+
+        try:
+            total = float(raw_total)
+        except (
+            TypeError,
+            ValueError,
+        ):
+            total = 0.0
+
+        month_total += total
+
+        if (
+            receipt.get("receipt_date")
+            == today.isoformat()
+        ):
+            today_total += total
+
+        category = (
+            receipt.get("category")
+            or "Lain-lain"
+        )
+
+        category_totals[category] += total
+
+    if category_totals:
+        top_category = max(
+            category_totals,
+            key=category_totals.get,
+        )
+
+        top_category_total = category_totals[
+            top_category
+        ]
+
+    else:
+        top_category = None
+        top_category_total = 0.0
+
+    return {
+        "today_total": today_total,
+        "month_total": month_total,
+        "month_receipt_count": len(receipts),
+        "top_category": top_category,
+        "top_category_total": top_category_total,
+    }
