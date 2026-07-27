@@ -1,5 +1,6 @@
 import logging
 
+from telegram import BotCommand
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -38,12 +39,42 @@ logging.basicConfig(
 )
 
 
+async def setup_bot_commands(
+    application: Application,
+) -> None:
+    """Daftar command yang dipaparkan dalam menu Telegram."""
+
+    commands = [
+        BotCommand(
+            command="start",
+            description="Mulakan ReceiptBot",
+        ),
+        BotCommand(
+            command="dashboard",
+            description="Lihat dashboard perbelanjaan",
+        ),
+        BotCommand(
+            command="receipts",
+            description="Lihat resit terkini",
+        ),
+        BotCommand(
+            command="summary",
+            description="Lihat ringkasan bulan ini",
+        ),
+    ]
+
+    await application.bot.set_my_commands(
+        commands
+    )
+
+
 def main() -> None:
     """Jalankan ReceiptBot."""
 
     application = (
         Application.builder()
         .token(BOT_TOKEN)
+        .post_init(setup_bot_commands)
         .build()
     )
 
