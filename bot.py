@@ -269,7 +269,7 @@ def format_receipt_preview(
 def format_saved_preview(
     receipt: PendingReceipt,
 ) -> str:
-    """Paparkan status rekod yang telah disimpan."""
+    """Paparkan mesej akhir selepas resit disimpan."""
 
     return (
         "✅ Resit berjaya disimpan\n\n"
@@ -279,7 +279,7 @@ def format_saved_preview(
         f"💰 Jumlah\nRM{receipt.total:,.2f}\n\n"
         f"📂 Kategori\n{receipt.category}\n"
         "──────────────\n\n"
-        "Rekod perbelanjaan telah dicipta."
+        "Rekod perbelanjaan anda telah dikemas kini."
     )
 
 
@@ -561,8 +561,23 @@ async def handle_receipt_action(
                 receipt.receipt_id,
             )
 
+            completed_receipt = delete_pending_receipt(
+                telegram_id=telegram_user.id,
+                delete_image=True,
+            )
+
+            if completed_receipt is None:
+                completed_receipt = receipt
+
+            logger.info(
+                "Cleanup selesai untuk Telegram ID: %s",
+                telegram_user.id,
+            )
+
             await query.edit_message_text(
-                format_saved_preview(receipt)
+                format_saved_preview(
+                    completed_receipt
+                )
             )
 
         except Exception as error:
@@ -573,7 +588,8 @@ async def handle_receipt_action(
 
             await query.edit_message_text(
                 "Resit gagal disimpan.\n\n"
-                "Sila hantar semula gambar resit."
+                "Sila cuba semula atau hantar kembali "
+                "gambar resit."
             )
 
         return
