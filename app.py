@@ -26,6 +26,7 @@ from bot import (
 from config import BOT_TOKEN
 from dashboard import dashboard_command
 from receipts import receipts_command
+from summary import summary_command
 
 
 logging.basicConfig(
@@ -64,6 +65,13 @@ def main() -> None:
         CommandHandler(
             "receipts",
             receipts_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "summary",
+            summary_command,
         )
     )
 

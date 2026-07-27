@@ -382,3 +382,111 @@ def get_recent_receipts(
     )
 
     return response.data or []
+
+
+def get_monthly_category_summary(
+    telegram_id: int,
+    today: date,
+) -> dict[str, Any]:
+    """Kira ringkasan bulan semasa mengikut kategori."""
+
+    user = get_user_by_telegram_id(
+        telegram_id
+    )
+
+    user_id = user.get("id")
+
+    if user_id is None:
+        raise RuntimeError(
+            "User ID tidak dijumpai."
+        )
+
+    first_day = today.replace(
+        day=1
+    )
+
+    response = (
+        supabase.table("receipts")
+        .select(
+            "id,total,category,receipt_date"
+        )
+        .eq("user_id", user_id)
+        .gte(
+            "receipt_date",
+            first_day.isoformat(),
+        )
+        .lte(
+            "receipt_date",
+            today.isoformat(),
+        )
+        .execute()
+    )
+
+    receipts = response.data or []
+
+    total_spending = 0.0
+
+    category_data: defaultdict[
+        str,
+        dict[str, Any],
+    ] = defaultdict(
+        lambda: {
+            "total": 0.0,
+            "receipt_count": 0,
+        }
+    )
+
+    for receipt in receipts:
+        raw_total = receipt.get(
+            "total",
+            0,
+        )
+
+        try:
+            total = float(raw_total)
+        except (
+            TypeError,
+            ValueError,
+        ):
+            total = 0.0
+
+        category = (
+            receipt.get("category")
+            or "Lain-lain"
+        )
+
+        total_spending += total
+
+        category_data[category][
+            "total"
+        ] += total
+
+        category_data[category][
+            "receipt_count"
+        ] += 1
+
+    categories = []
+
+    for category, data in category_data.items():
+        categories.append(
+            {
+                "category": category,
+                "total": data["total"],
+                "receipt_count": data[
+                    "receipt_count"
+                ],
+            }
+        )
+
+    categories.sort(
+        key=lambda item: item["total"],
+        reverse=True,
+    )
+
+    return {
+        "month": today.month,
+        "year": today.year,
+        "total_spending": total_spending,
+        "receipt_count": len(receipts),
+        "categories": categories,
+    }
