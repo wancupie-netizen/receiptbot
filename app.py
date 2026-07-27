@@ -22,11 +22,13 @@ from bot import (
     CALLBACK_EDIT_TOTAL,
     handle_receipt_action,
     handle_text_message,
-    receive_receipt,
     start,
 )
 from config import BOT_TOKEN
 from dashboard import dashboard_command
+from free_plan import (
+    receive_receipt_with_plan_check,
+)
 from help import help_command
 from receipts import receipts_command
 from summary import summary_command
@@ -133,7 +135,7 @@ def main() -> None:
     application.add_handler(
         MessageHandler(
             filters.PHOTO,
-            receive_receipt,
+            receive_receipt_with_plan_check,
         )
     )
 

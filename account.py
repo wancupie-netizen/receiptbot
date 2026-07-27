@@ -11,6 +11,10 @@ from database import (
     get_account_summary,
     get_or_create_user,
 )
+from plans import (
+    FREE_PLAN_MONTHLY_LIMIT,
+)
+from usage import get_monthly_plan_usage
 
 
 logger = logging.getLogger(__name__)
@@ -86,10 +90,37 @@ def format_registration_date(
     )
 
 
+def build_usage_bar(
+    monthly_usage: int,
+) -> str:
+    """Bina indikator ringkas penggunaan pelan."""
+
+    safe_usage = min(
+        monthly_usage,
+        FREE_PLAN_MONTHLY_LIMIT,
+    )
+
+    filled_blocks = round(
+        (
+            safe_usage
+            / FREE_PLAN_MONTHLY_LIMIT
+        )
+        * 10
+    )
+
+    empty_blocks = 10 - filled_blocks
+
+    return (
+        "▓" * filled_blocks
+        + "░" * empty_blocks
+    )
+
+
 def format_account_message(
     summary: dict[str, Any],
     telegram_id: int,
     fallback_name: str,
+    monthly_plan_usage: int,
 ) -> str:
     """Sediakan paparan maklumat akaun."""
 
@@ -115,6 +146,25 @@ def format_account_message(
         "Aktif",
     )
 
+    remaining_receipts = max(
+        FREE_PLAN_MONTHLY_LIMIT
+        - monthly_plan_usage,
+        0,
+    )
+
+    usage_bar = build_usage_bar(
+        monthly_plan_usage
+    )
+
+    if remaining_receipts == 0:
+        usage_status = (
+            "Had bulanan telah digunakan."
+        )
+    else:
+        usage_status = (
+            f"{remaining_receipts} resit lagi tersedia."
+        )
+
     return (
         "👤 Akaun\n\n"
         "━━━━━━━━━━━━━━\n\n"
@@ -128,9 +178,12 @@ def format_account_message(
         "Daftar\n"
         f"{registered_at}\n\n"
         "━━━━━━━━━━━━━━\n\n"
-        "Resit Bulan Ini\n"
-        f"{summary['month_receipt_count']}\n\n"
-        "Jumlah Resit\n"
+        "Penggunaan Pelan Bulan Ini\n"
+        f"{monthly_plan_usage} / "
+        f"{FREE_PLAN_MONTHLY_LIMIT} resit\n"
+        f"{usage_bar}\n\n"
+        f"{usage_status}\n\n"
+        "Jumlah Resit Disimpan\n"
         f"{summary['total_receipt_count']}\n\n"
         "━━━━━━━━━━━━━━\n\n"
         "Status\n"
@@ -181,11 +234,22 @@ async def account_command(
             today,
         )
 
+        monthly_plan_usage = (
+            await asyncio.to_thread(
+                get_monthly_plan_usage,
+                telegram_user.id,
+                today,
+            )
+        )
+
         await status_message.edit_text(
             format_account_message(
                 summary=account_summary,
                 telegram_id=telegram_user.id,
                 fallback_name=name,
+                monthly_plan_usage=(
+                    monthly_plan_usage
+                ),
             )
         )
 
