@@ -34,6 +34,11 @@ from help import help_command
 from receipts import receipts_command
 from search import search_command
 from summary import summary_command
+from upgrade import (
+    CALLBACK_UPGRADE_PREFIX,
+    handle_upgrade_action,
+    upgrade_command,
+)
 
 
 logging.basicConfig(
@@ -78,6 +83,10 @@ async def setup_bot_commands(
         BotCommand(
             command="account",
             description="Lihat maklumat akaun",
+        ),
+        BotCommand(
+            command="upgrade",
+            description="Lihat dan pilih pelan",
         ),
         BotCommand(
             command="help",
@@ -151,6 +160,13 @@ def main() -> None:
 
     application.add_handler(
         CommandHandler(
+            "upgrade",
+            upgrade_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
             "help",
             help_command,
         )
@@ -160,6 +176,15 @@ def main() -> None:
         MessageHandler(
             filters.PHOTO,
             receive_receipt_with_plan_check,
+        )
+    )
+
+    application.add_handler(
+        CallbackQueryHandler(
+            handle_upgrade_action,
+            pattern=(
+                f"^{CALLBACK_UPGRADE_PREFIX}"
+            ),
         )
     )
 

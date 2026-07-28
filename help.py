@@ -53,6 +53,9 @@ Ringkasan bulan ini
 /account
 Maklumat akaun
 
+/upgrade
+Lihat dan pilih pelan ReceiptBot
+
 /help
 Paparan bantuan
 
@@ -84,6 +87,27 @@ yang mengandungi semua rekod resit anda.
 
 Export CSV tersedia untuk
 pelan Starter dan Business.
+
+━━━━━━━━━━━━━━
+
+🚀 Upgrade Pelan
+
+Gunakan:
+/upgrade
+
+Anda boleh membandingkan pelan:
+
+🆓 Free
+RM0 — 20 resit / bulan
+
+⭐ Starter
+RM9.90 — 100 resit / bulan
+
+⭐⭐ Business
+RM19.90 — 500 resit / bulan
+
+Pembayaran dalam talian akan
+tersedia tidak lama lagi.
 
 ━━━━━━━━━━━━━━
 
