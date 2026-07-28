@@ -1,6 +1,8 @@
 import asyncio
 import logging
+from datetime import datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from telegram import (
     InlineKeyboardButton,
@@ -9,6 +11,14 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
+from config import PAYMENT_PROVIDER
+from payment_service import (
+    CheckoutRequest,
+    CheckoutSession,
+    PaymentProviderNotConfiguredError,
+    PaymentServiceError,
+    create_checkout,
+)
 from plans import (
     BUSINESS_PLAN,
     FREE_PLAN,
@@ -24,10 +34,23 @@ from subscription_service import (
 
 logger = logging.getLogger(__name__)
 
+MALAYSIA_TIMEZONE = ZoneInfo(
+    "Asia/Kuching"
+)
+
 CALLBACK_UPGRADE_PREFIX = "upgrade:"
-CALLBACK_UPGRADE_STARTER = "upgrade:STARTER"
-CALLBACK_UPGRADE_BUSINESS = "upgrade:BUSINESS"
-CALLBACK_UPGRADE_BACK = "upgrade:BACK"
+
+CALLBACK_UPGRADE_STARTER = (
+    "upgrade:STARTER"
+)
+
+CALLBACK_UPGRADE_BUSINESS = (
+    "upgrade:BUSINESS"
+)
+
+CALLBACK_UPGRADE_BACK = (
+    "upgrade:BACK"
+)
 
 
 def format_price(
@@ -113,7 +136,9 @@ def format_plan_section(
     )
 
     if plan.code == current_plan_code:
-        plan_status = "\n\n✅ Pelan semasa anda"
+        plan_status = (
+            "\n\n✅ Pelan semasa anda"
+        )
     else:
         plan_status = ""
 
@@ -145,6 +170,17 @@ def format_upgrade_message(
         ),
     ]
 
+    if PAYMENT_PROVIDER == "DEVELOPMENT":
+        payment_notice = (
+            "🧪 Mod ujian pembayaran aktif.\n"
+            "Tiada wang sebenar akan diterima."
+        )
+    else:
+        payment_notice = (
+            "Pembayaran dalam talian akan "
+            "tersedia tidak lama lagi."
+        )
+
     return (
         "🚀 Upgrade ReceiptBot\n\n"
         "Pilih pelan yang sesuai dengan "
@@ -154,8 +190,7 @@ def format_upgrade_message(
             sections
         )
         + "\n\n━━━━━━━━━━━━━━\n\n"
-        "Pembayaran dalam talian akan "
-        "tersedia tidak lama lagi."
+        f"{payment_notice}"
     )
 
 
@@ -172,7 +207,9 @@ def build_upgrade_keyboard(
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="⭐ Pilih Starter — RM9.90",
+                    text=(
+                        "⭐ Pilih Starter — RM9.90"
+                    ),
                     callback_data=(
                         CALLBACK_UPGRADE_STARTER
                     ),
@@ -183,7 +220,9 @@ def build_upgrade_keyboard(
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="⭐⭐ Pilih Business — RM19.90",
+                    text=(
+                        "⭐⭐ Pilih Business — RM19.90"
+                    ),
                     callback_data=(
                         CALLBACK_UPGRADE_BUSINESS
                     ),
@@ -195,7 +234,9 @@ def build_upgrade_keyboard(
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="⭐⭐ Upgrade Business — RM19.90",
+                    text=(
+                        "⭐⭐ Upgrade Business — RM19.90"
+                    ),
                     callback_data=(
                         CALLBACK_UPGRADE_BUSINESS
                     ),
@@ -211,39 +252,117 @@ def build_upgrade_keyboard(
     )
 
 
-def format_selected_plan_message(
-    selected_plan: Plan,
-    current_plan: Plan,
+def build_back_keyboard() -> InlineKeyboardMarkup:
+    """Bina butang kembali ke pilihan pelan."""
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    text=(
+                        "⬅️ Kembali ke pilihan pelan"
+                    ),
+                    callback_data=(
+                        CALLBACK_UPGRADE_BACK
+                    ),
+                )
+            ]
+        ]
+    )
+
+
+def build_checkout_idempotency_key(
+    telegram_id: int,
+    plan_code: PlanCode,
 ) -> str:
-    """Sediakan mesej selepas pengguna memilih pelan."""
+    """
+    Bina kunci checkout harian.
 
-    if selected_plan.code == current_plan.code:
-        return (
-            "✅ Anda sudah menggunakan "
-            f"pelan {current_plan.name}."
-        )
+    Klik berulang pada pelan sama dalam hari yang sama
+    akan menggunakan transaksi PENDING yang sama.
+    """
 
-    feature_lines = "\n".join(
-        f"✓ {feature}"
-        for feature in get_plan_features(
-            selected_plan.code
-        )
+    local_date = datetime.now(
+        MALAYSIA_TIMEZONE
+    ).strftime(
+        "%Y%m%d"
     )
 
     return (
+        f"telegram_upgrade:"
+        f"{telegram_id}:"
+        f"{plan_code.value}:"
+        f"{local_date}"
+    )
+
+
+def create_development_checkout(
+    telegram_id: int,
+    customer_name: str,
+    selected_plan: Plan,
+) -> CheckoutSession:
+    """Cipta checkout ujian dan simpan ke Supabase."""
+
+    checkout_request = CheckoutRequest(
+        telegram_id=telegram_id,
+        plan_code=selected_plan.code,
+        customer_name=customer_name,
+        description=(
+            "Langganan bulanan ReceiptBot "
+            f"{selected_plan.name}"
+        ),
+    )
+
+    idempotency_key = (
+        build_checkout_idempotency_key(
+            telegram_id=telegram_id,
+            plan_code=selected_plan.code,
+        )
+    )
+
+    return create_checkout(
+        request=checkout_request,
+        idempotency_key=idempotency_key,
+    )
+
+
+def format_checkout_message(
+    selected_plan: Plan,
+    checkout: CheckoutSession,
+) -> str:
+    """Sediakan paparan transaksi checkout."""
+
+    if PAYMENT_PROVIDER == "DEVELOPMENT":
+        provider_notice = (
+            "🧪 Ini ialah transaksi ujian.\n"
+            "Tiada wang sebenar akan ditolak."
+        )
+    else:
+        provider_notice = (
+            "Gunakan pautan checkout untuk "
+            "meneruskan pembayaran."
+        )
+
+    return (
+        "🧾 Checkout ReceiptBot\n\n"
+        "━━━━━━━━━━━━━━\n\n"
+        "Pelan\n"
         f"{get_plan_icon(selected_plan.code)} "
-        f"Pelan {selected_plan.name}\n\n"
-        f"Harga\n"
+        f"{selected_plan.name}\n\n"
+        "Harga\n"
         f"{format_price(selected_plan.monthly_price_rm)}\n\n"
-        f"Kuota\n"
+        "Kuota\n"
         f"{selected_plan.monthly_receipt_limit} "
         "resit / bulan\n\n"
-        f"{feature_lines}\n\n"
+        "Status\n"
+        f"{checkout.status.value}\n\n"
+        "Rujukan Pembayaran\n"
+        f"{checkout.payment_reference}\n\n"
         "━━━━━━━━━━━━━━\n\n"
-        "Sistem pembayaran sedang disediakan.\n\n"
-        "Apabila pembayaran dilancarkan, "
-        "butang ini akan membawa anda terus "
-        "ke halaman pembayaran yang selamat."
+        f"{provider_notice}\n\n"
+        "Pelan akaun anda belum berubah.\n"
+        "Pelan hanya akan diaktifkan selepas "
+        "pembayaran disahkan."
     )
 
 
@@ -321,7 +440,9 @@ async def handle_upgrade_action(
         )
         return
 
-    callback_data = query.data or ""
+    callback_data = (
+        query.data or ""
+    )
 
     try:
         subscription = await asyncio.to_thread(
@@ -342,10 +463,16 @@ async def handle_upgrade_action(
             )
             return
 
-        if callback_data == CALLBACK_UPGRADE_STARTER:
+        if (
+            callback_data
+            == CALLBACK_UPGRADE_STARTER
+        ):
             selected_plan = STARTER_PLAN
 
-        elif callback_data == CALLBACK_UPGRADE_BUSINESS:
+        elif (
+            callback_data
+            == CALLBACK_UPGRADE_BUSINESS
+        ):
             selected_plan = BUSINESS_PLAN
 
         else:
@@ -355,25 +482,94 @@ async def handle_upgrade_action(
             )
             return
 
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        text="⬅️ Kembali ke pilihan pelan",
-                        callback_data=(
-                            CALLBACK_UPGRADE_BACK
-                        ),
-                    )
-                ]
-            ]
+        if (
+            selected_plan.code
+            == subscription.plan_code
+        ):
+            await query.edit_message_text(
+                text=(
+                    "✅ Anda sudah menggunakan "
+                    f"pelan {selected_plan.name}."
+                ),
+                reply_markup=(
+                    build_back_keyboard()
+                ),
+            )
+            return
+
+        customer_name = (
+            telegram_user.full_name
+            or telegram_user.first_name
+            or "Pengguna ReceiptBot"
         )
 
         await query.edit_message_text(
-            text=format_selected_plan_message(
+            text=(
+                "⏳ Mencipta transaksi "
+                f"{selected_plan.name}..."
+            )
+        )
+
+        checkout = await asyncio.to_thread(
+            create_development_checkout,
+            telegram_user.id,
+            customer_name,
+            selected_plan,
+        )
+
+        await query.edit_message_text(
+            text=format_checkout_message(
                 selected_plan=selected_plan,
-                current_plan=subscription.plan,
+                checkout=checkout,
             ),
-            reply_markup=keyboard,
+            reply_markup=(
+                build_back_keyboard()
+            ),
+        )
+
+        logger.info(
+            "Checkout upgrade dicipta. "
+            "Telegram ID: %s | "
+            "Pelan: %s | "
+            "Reference: %s | "
+            "Status: %s",
+            telegram_user.id,
+            selected_plan.code.value,
+            checkout.payment_reference,
+            checkout.status.value,
+        )
+
+    except PaymentProviderNotConfiguredError:
+        await query.edit_message_text(
+            text=(
+                "⚠️ Pembayaran Belum Tersedia\n\n"
+                "Payment gateway belum "
+                "dikonfigurasi.\n\n"
+                "Sila cuba semula selepas sistem "
+                "pembayaran dilancarkan."
+            ),
+            reply_markup=(
+                build_back_keyboard()
+            ),
+        )
+
+    except PaymentServiceError as error:
+        logger.exception(
+            "Payment Service gagal memproses upgrade. "
+            "Telegram ID: %s | Ralat: %s",
+            telegram_user.id,
+            error,
+        )
+
+        await query.edit_message_text(
+            text=(
+                "Checkout gagal dicipta.\n\n"
+                f"{error}\n\n"
+                "Sila cuba semula."
+            ),
+            reply_markup=(
+                build_back_keyboard()
+            ),
         )
 
     except Exception as error:
@@ -384,7 +580,12 @@ async def handle_upgrade_action(
             error,
         )
 
-        await query.answer(
-            "Pilihan pelan gagal diproses.",
-            show_alert=True,
+        await query.edit_message_text(
+            text=(
+                "Pilihan pelan gagal diproses.\n\n"
+                "Sila cuba semula."
+            ),
+            reply_markup=(
+                build_back_keyboard()
+            ),
         )

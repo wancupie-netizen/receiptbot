@@ -24,13 +24,21 @@ from bot import (
     handle_text_message,
     start,
 )
-from config import BOT_TOKEN
+from config import (
+    BOT_TOKEN,
+    PAYMENT_PROVIDER,
+)
 from dashboard import dashboard_command
 from export_csv import export_csv_command
 from free_plan import (
     receive_receipt_with_plan_check,
 )
 from help import help_command
+from payment_service import (
+    DevelopmentPaymentGateway,
+    NotConfiguredPaymentGateway,
+    configure_payment_gateway,
+)
 from receipts import receipts_command
 from search import search_command
 from summary import summary_command
@@ -48,6 +56,52 @@ logging.basicConfig(
     ),
     level=logging.INFO,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def setup_payment_gateway() -> None:
+    """Konfigurasi payment gateway ReceiptBot."""
+
+    if PAYMENT_PROVIDER == "DEVELOPMENT":
+        configure_payment_gateway(
+            DevelopmentPaymentGateway()
+        )
+
+        logger.warning(
+            "ReceiptBot menggunakan "
+            "Development Payment Gateway. "
+            "Tiada bayaran sebenar akan diterima."
+        )
+
+        return
+
+    if PAYMENT_PROVIDER == "NOT_CONFIGURED":
+        configure_payment_gateway(
+            NotConfiguredPaymentGateway()
+        )
+
+        logger.warning(
+            "Payment gateway belum dikonfigurasi."
+        )
+
+        return
+
+    if PAYMENT_PROVIDER == "BILLPLZ":
+        configure_payment_gateway(
+            NotConfiguredPaymentGateway()
+        )
+
+        logger.warning(
+            "BILLPLZ dipilih tetapi integrasi "
+            "Billplz belum dipasang."
+        )
+
+        return
+
+    raise RuntimeError(
+        "Payment provider tidak dikenali."
+    )
 
 
 async def setup_bot_commands(
@@ -101,6 +155,8 @@ async def setup_bot_commands(
 
 def main() -> None:
     """Jalankan ReceiptBot."""
+
+    setup_payment_gateway()
 
     application = (
         Application.builder()
