@@ -11,8 +11,10 @@ from database import (
     get_account_summary,
     get_or_create_user,
 )
-from plans import (
-    FREE_PLAN_MONTHLY_LIMIT,
+from plans import PlanCode
+from subscription_service import (
+    SubscriptionContext,
+    get_subscription_context,
 )
 from usage import get_monthly_plan_usage
 
@@ -63,19 +65,15 @@ def parse_created_at(
         return None
 
 
-def format_registration_date(
-    created_at: Any,
+def format_datetime_date(
+    value: datetime | None,
 ) -> str:
-    """Format tarikh pendaftaran pengguna."""
+    """Format objek datetime kepada tarikh Bahasa Melayu."""
 
-    parsed_date = parse_created_at(
-        created_at
-    )
+    if value is None:
+        return "Tiada"
 
-    if parsed_date is None:
-        return "Tidak diketahui"
-
-    local_date = parsed_date.astimezone(
+    local_date = value.astimezone(
         MALAYSIA_TIMEZONE
     )
 
@@ -90,20 +88,68 @@ def format_registration_date(
     )
 
 
+def format_registration_date(
+    created_at: Any,
+) -> str:
+    """Format tarikh pendaftaran pengguna."""
+
+    parsed_date = parse_created_at(
+        created_at
+    )
+
+    if parsed_date is None:
+        return "Tidak diketahui"
+
+    return format_datetime_date(
+        parsed_date
+    )
+
+
+def get_plan_icon(
+    plan_code: PlanCode,
+) -> str:
+    """Dapatkan ikon pelan."""
+
+    if plan_code == PlanCode.STARTER:
+        return "⭐"
+
+    if plan_code == PlanCode.BUSINESS:
+        return "⭐⭐"
+
+    return "🆓"
+
+
+def format_monthly_price(
+    subscription: SubscriptionContext,
+) -> str:
+    """Format harga bulanan pelan."""
+
+    price = subscription.plan.monthly_price_rm
+
+    if price == 0:
+        return "RM0"
+
+    return f"RM{price:.2f} / bulan"
+
+
 def build_usage_bar(
     monthly_usage: int,
+    monthly_limit: int,
 ) -> str:
     """Bina indikator ringkas penggunaan pelan."""
 
+    if monthly_limit <= 0:
+        return "░░░░░░░░░░"
+
     safe_usage = min(
         monthly_usage,
-        FREE_PLAN_MONTHLY_LIMIT,
+        monthly_limit,
     )
 
     filled_blocks = round(
         (
             safe_usage
-            / FREE_PLAN_MONTHLY_LIMIT
+            / monthly_limit
         )
         * 10
     )
@@ -116,8 +162,81 @@ def build_usage_bar(
     )
 
 
+def format_usage_status(
+    monthly_usage: int,
+    monthly_limit: int,
+) -> str:
+    """Sediakan status baki penggunaan resit."""
+
+    remaining_receipts = max(
+        monthly_limit - monthly_usage,
+        0,
+    )
+
+    if remaining_receipts == 0:
+        return "Had bulanan telah digunakan."
+
+    return (
+        f"{remaining_receipts} resit lagi tersedia."
+    )
+
+
+def format_subscription_period(
+    subscription: SubscriptionContext,
+) -> str:
+    """Format tempoh langganan."""
+
+    start_date = format_datetime_date(
+        subscription.starts_at
+    )
+
+    if subscription.expires_at is None:
+        return (
+            f"Mula\n{start_date}\n\n"
+            "Tamat\nTiada tarikh tamat"
+        )
+
+    end_date = format_datetime_date(
+        subscription.expires_at
+    )
+
+    return (
+        f"Mula\n{start_date}\n\n"
+        f"Tamat\n{end_date}"
+    )
+
+
+def format_active_addons(
+    subscription: SubscriptionContext,
+) -> str:
+    """Format senarai add-on aktif."""
+
+    if not subscription.active_addons:
+        return "Tiada"
+
+    addon_lines: list[str] = []
+
+    for active_addon in subscription.active_addons:
+        addon_name = active_addon.addon.name
+
+        if active_addon.quantity > 1:
+            addon_name = (
+                f"{addon_name} "
+                f"x{active_addon.quantity}"
+            )
+
+        addon_lines.append(
+            f"• {addon_name}"
+        )
+
+    return "\n".join(
+        addon_lines
+    )
+
+
 def format_account_message(
     summary: dict[str, Any],
+    subscription: SubscriptionContext,
     telegram_id: int,
     fallback_name: str,
     monthly_plan_usage: int,
@@ -136,34 +255,37 @@ def format_account_message(
         user.get("created_at")
     )
 
-    plan = summary.get(
-        "plan",
-        "Free",
-    )
-
-    status = summary.get(
-        "status",
-        "Aktif",
-    )
-
-    remaining_receipts = max(
-        FREE_PLAN_MONTHLY_LIMIT
-        - monthly_plan_usage,
-        0,
+    monthly_limit = (
+        subscription.monthly_receipt_limit
     )
 
     usage_bar = build_usage_bar(
-        monthly_plan_usage
+        monthly_usage=monthly_plan_usage,
+        monthly_limit=monthly_limit,
     )
 
-    if remaining_receipts == 0:
-        usage_status = (
-            "Had bulanan telah digunakan."
+    usage_status = format_usage_status(
+        monthly_usage=monthly_plan_usage,
+        monthly_limit=monthly_limit,
+    )
+
+    plan_icon = get_plan_icon(
+        subscription.plan_code
+    )
+
+    monthly_price = format_monthly_price(
+        subscription
+    )
+
+    subscription_period = (
+        format_subscription_period(
+            subscription
         )
-    else:
-        usage_status = (
-            f"{remaining_receipts} resit lagi tersedia."
-        )
+    )
+
+    active_addons = format_active_addons(
+        subscription
+    )
 
     return (
         "👤 Akaun\n\n"
@@ -173,21 +295,28 @@ def format_account_message(
         "Telegram ID\n"
         f"{telegram_id}\n\n"
         "Pelan\n"
-        f"🆓 {plan}\n\n"
+        f"{plan_icon} {subscription.plan.name}\n\n"
+        "Harga\n"
+        f"{monthly_price}\n\n"
         "━━━━━━━━━━━━━━\n\n"
         "Daftar\n"
         f"{registered_at}\n\n"
+        "Langganan\n"
+        f"{subscription_period}\n\n"
         "━━━━━━━━━━━━━━\n\n"
         "Penggunaan Pelan Bulan Ini\n"
         f"{monthly_plan_usage} / "
-        f"{FREE_PLAN_MONTHLY_LIMIT} resit\n"
+        f"{monthly_limit} resit\n"
         f"{usage_bar}\n\n"
         f"{usage_status}\n\n"
         "Jumlah Resit Disimpan\n"
         f"{summary['total_receipt_count']}\n\n"
         "━━━━━━━━━━━━━━\n\n"
+        "Add-on Aktif\n"
+        f"{active_addons}\n\n"
+        "━━━━━━━━━━━━━━\n\n"
         "Status\n"
-        f"{status} ✅"
+        f"{subscription.status} ✅"
     )
 
 
@@ -234,6 +363,11 @@ async def account_command(
             today,
         )
 
+        subscription = await asyncio.to_thread(
+            get_subscription_context,
+            telegram_user.id,
+        )
+
         monthly_plan_usage = (
             await asyncio.to_thread(
                 get_monthly_plan_usage,
@@ -245,6 +379,7 @@ async def account_command(
         await status_message.edit_text(
             format_account_message(
                 summary=account_summary,
+                subscription=subscription,
                 telegram_id=telegram_user.id,
                 fallback_name=name,
                 monthly_plan_usage=(
