@@ -26,6 +26,7 @@ from bot import (
 )
 from config import BOT_TOKEN
 from dashboard import dashboard_command
+from export_csv import export_csv_command
 from free_plan import (
     receive_receipt_with_plan_check,
 )
@@ -65,6 +66,10 @@ async def setup_bot_commands(
         BotCommand(
             command="search",
             description="Cari rekod resit",
+        ),
+        BotCommand(
+            command="export_csv",
+            description="Eksport rekod ke CSV",
         ),
         BotCommand(
             command="summary",
@@ -120,6 +125,13 @@ def main() -> None:
         CommandHandler(
             "search",
             search_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "export_csv",
+            export_csv_command,
         )
     )
 

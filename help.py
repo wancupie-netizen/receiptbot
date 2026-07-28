@@ -44,6 +44,9 @@ Dashboard perbelanjaan
 /search
 Cari rekod resit
 
+/export_csv
+Eksport semua rekod ke CSV
+
 /summary
 Ringkasan bulan ini
 
@@ -67,6 +70,19 @@ Contoh:
 /search 14.00
 
 Carian resit tersedia untuk
+pelan Starter dan Business.
+
+━━━━━━━━━━━━━━
+
+📄 Export CSV
+
+Gunakan:
+/export_csv
+
+ReceiptBot akan menghasilkan fail CSV
+yang mengandungi semua rekod resit anda.
+
+Export CSV tersedia untuk
 pelan Starter dan Business.
 
 ━━━━━━━━━━━━━━
