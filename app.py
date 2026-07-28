@@ -29,6 +29,10 @@ from config import (
     PAYMENT_PROVIDER,
 )
 from dashboard import dashboard_command
+from development_payment import (
+    CALLBACK_DEVELOPMENT_PAYMENT_PREFIX,
+    handle_development_payment_action,
+)
 from export_csv import export_csv_command
 from free_plan import (
     receive_receipt_with_plan_check,
@@ -61,90 +65,60 @@ logger = logging.getLogger(__name__)
 
 
 def setup_payment_gateway() -> None:
-    """Konfigurasi payment gateway ReceiptBot."""
-
     if PAYMENT_PROVIDER == "DEVELOPMENT":
         configure_payment_gateway(
             DevelopmentPaymentGateway()
         )
 
         logger.warning(
-            "ReceiptBot menggunakan "
-            "Development Payment Gateway. "
-            "Tiada bayaran sebenar akan diterima."
+            "Development Payment Gateway aktif."
         )
-
         return
 
-    if PAYMENT_PROVIDER == "NOT_CONFIGURED":
-        configure_payment_gateway(
-            NotConfiguredPaymentGateway()
-        )
-
-        logger.warning(
-            "Payment gateway belum dikonfigurasi."
-        )
-
-        return
-
-    if PAYMENT_PROVIDER == "BILLPLZ":
-        configure_payment_gateway(
-            NotConfiguredPaymentGateway()
-        )
-
-        logger.warning(
-            "BILLPLZ dipilih tetapi integrasi "
-            "Billplz belum dipasang."
-        )
-
-        return
-
-    raise RuntimeError(
-        "Payment provider tidak dikenali."
+    configure_payment_gateway(
+        NotConfiguredPaymentGateway()
     )
 
 
 async def setup_bot_commands(
     application: Application,
 ) -> None:
-    """Daftar command yang dipaparkan dalam menu Telegram."""
-
     commands = [
         BotCommand(
-            command="start",
-            description="Mulakan ReceiptBot",
+            "start",
+            "Mulakan ReceiptBot",
         ),
         BotCommand(
-            command="dashboard",
-            description="Lihat dashboard perbelanjaan",
+            "dashboard",
+            "Lihat dashboard perbelanjaan",
         ),
         BotCommand(
-            command="receipts",
-            description="Lihat resit terkini",
+            "receipts",
+            "Lihat resit terkini",
         ),
         BotCommand(
-            command="search",
-            description="Cari rekod resit",
+            "search",
+            "Cari rekod resit",
         ),
         BotCommand(
-            command="export_csv",
-            description="Eksport rekod ke CSV",
+            "export_csv",
+            "Eksport rekod ke CSV",
         ),
         BotCommand(
-            command="summary",
-            description="Lihat ringkasan bulan ini",
+            "summary",
+            "Lihat ringkasan bulan ini",
         ),
         BotCommand(
-            command="account",
-            description="Lihat maklumat akaun",
+            "account",
+            "Lihat maklumat akaun",
         ),
         BotCommand(
-            command="upgrade",
-            description="Lihat dan pilih pelan",
+            "upgrade",
+            "Lihat dan pilih pelan",
         ),
         BotCommand(
-            command="help",
-            description="Lihat panduan penggunaan",
+            "help",
+            "Lihat panduan penggunaan",
         ),
     ]
 
@@ -154,8 +128,6 @@ async def setup_bot_commands(
 
 
 def main() -> None:
-    """Jalankan ReceiptBot."""
-
     setup_payment_gateway()
 
     application = (
@@ -232,6 +204,16 @@ def main() -> None:
         MessageHandler(
             filters.PHOTO,
             receive_receipt_with_plan_check,
+        )
+    )
+
+    application.add_handler(
+        CallbackQueryHandler(
+            handle_development_payment_action,
+            pattern=(
+                "^"
+                f"{CALLBACK_DEVELOPMENT_PAYMENT_PREFIX}"
+            ),
         )
     )
 
