@@ -53,11 +53,34 @@ Ringkasan bulan ini
 /account
 Maklumat akaun
 
+/billing
+Urus maklumat pembayaran
+
 /upgrade
 Lihat dan pilih pelan ReceiptBot
 
 /help
 Paparan bantuan
+
+━━━━━━━━━━━━━━
+
+💳 Billing Profile
+
+Gunakan:
+/billing
+
+Billing Profile menyimpan:
+
+• Nama
+• Email
+• Nombor telefon
+
+Maklumat ini diperlukan sebelum
+ReceiptBot boleh menghasilkan
+pautan pembayaran.
+
+Gunakan /cancel untuk membatalkan
+proses pengisian.
 
 ━━━━━━━━━━━━━━
 
@@ -105,9 +128,6 @@ RM9.90 — 100 resit / bulan
 
 ⭐⭐ Business
 RM19.90 — 500 resit / bulan
-
-Pembayaran dalam talian akan
-tersedia tidak lama lagi.
 
 ━━━━━━━━━━━━━━
 

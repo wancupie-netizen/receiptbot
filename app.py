@@ -5,11 +5,22 @@ from telegram.ext import (
     Application,
     CallbackQueryHandler,
     CommandHandler,
+    ConversationHandler,
     MessageHandler,
     filters,
 )
 
 from account import account_command
+from billing_profile import (
+    BILLING_CONFIRM,
+    BILLING_EMAIL,
+    BILLING_PHONE,
+    billing_command,
+    cancel_billing_command,
+    handle_billing_confirmation,
+    receive_billing_contact,
+    receive_billing_email,
+)
 from bot import (
     CALLBACK_CANCEL,
     CALLBACK_CATEGORY_PREFIX,
@@ -65,6 +76,8 @@ logger = logging.getLogger(__name__)
 
 
 def setup_payment_gateway() -> None:
+    """Konfigurasi payment gateway semasa."""
+
     if PAYMENT_PROVIDER == "DEVELOPMENT":
         configure_payment_gateway(
             DevelopmentPaymentGateway()
@@ -79,10 +92,64 @@ def setup_payment_gateway() -> None:
         NotConfiguredPaymentGateway()
     )
 
+    logger.warning(
+        "Payment gateway production belum dipasang. "
+        "Provider semasa: %s",
+        PAYMENT_PROVIDER,
+    )
+
+
+def build_billing_conversation() -> ConversationHandler:
+    """Bina flow perbualan Billing Profile."""
+
+    return ConversationHandler(
+        entry_points=[
+            CommandHandler(
+                "billing",
+                billing_command,
+            )
+        ],
+        states={
+            BILLING_PHONE: [
+                MessageHandler(
+                    filters.CONTACT,
+                    receive_billing_contact,
+                ),
+                MessageHandler(
+                    filters.TEXT
+                    & ~filters.COMMAND,
+                    receive_billing_contact,
+                ),
+            ],
+            BILLING_EMAIL: [
+                MessageHandler(
+                    filters.TEXT
+                    & ~filters.COMMAND,
+                    receive_billing_email,
+                )
+            ],
+            BILLING_CONFIRM: [
+                CallbackQueryHandler(
+                    handle_billing_confirmation,
+                    pattern=r"^billing:",
+                )
+            ],
+        },
+        fallbacks=[
+            CommandHandler(
+                "cancel",
+                cancel_billing_command,
+            )
+        ],
+        allow_reentry=True,
+    )
+
 
 async def setup_bot_commands(
     application: Application,
 ) -> None:
+    """Daftar command Telegram."""
+
     commands = [
         BotCommand(
             "start",
@@ -113,6 +180,10 @@ async def setup_bot_commands(
             "Lihat maklumat akaun",
         ),
         BotCommand(
+            "billing",
+            "Urus maklumat pembayaran",
+        ),
+        BotCommand(
             "upgrade",
             "Lihat dan pilih pelan",
         ),
@@ -128,6 +199,8 @@ async def setup_bot_commands(
 
 
 def main() -> None:
+    """Jalankan ReceiptBot."""
+
     setup_payment_gateway()
 
     application = (
@@ -135,6 +208,10 @@ def main() -> None:
         .token(BOT_TOKEN)
         .post_init(setup_bot_commands)
         .build()
+    )
+
+    application.add_handler(
+        build_billing_conversation()
     )
 
     application.add_handler(
