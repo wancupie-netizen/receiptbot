@@ -59,9 +59,10 @@ if PAYMENT_PROVIDER not in {
     "DEVELOPMENT",
     "NOT_CONFIGURED",
     "BILLPLZ",
+    "BAYARCASH",
 }:
     raise ValueError(
         "PAYMENT_PROVIDER tidak sah. "
-        "Gunakan DEVELOPMENT, "
-        "NOT_CONFIGURED atau BILLPLZ."
+        "Gunakan DEVELOPMENT, NOT_CONFIGURED, "
+        "BILLPLZ atau BAYARCASH."
     )

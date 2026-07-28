@@ -28,6 +28,7 @@ class PaymentProviderCode(StrEnum):
     NOT_CONFIGURED = "NOT_CONFIGURED"
     DEVELOPMENT = "DEVELOPMENT"
     BILLPLZ = "BILLPLZ"
+    BAYARCASH = "BAYARCASH"
 
 
 class PaymentServiceError(RuntimeError):
