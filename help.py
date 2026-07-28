@@ -41,6 +41,9 @@ Dashboard perbelanjaan
 /receipts
 10 resit terkini
 
+/search
+Cari rekod resit
+
 /summary
 Ringkasan bulan ini
 
@@ -49,6 +52,22 @@ Maklumat akaun
 
 /help
 Paparan bantuan
+
+━━━━━━━━━━━━━━
+
+🔎 Cara Carian
+
+Gunakan:
+/search kata_kunci
+
+Contoh:
+/search 99 Speed Mart
+/search Bahan Mentah
+/search 2026-07-27
+/search 14.00
+
+Carian resit tersedia untuk
+pelan Starter dan Business.
 
 ━━━━━━━━━━━━━━
 

@@ -31,6 +31,7 @@ from free_plan import (
 )
 from help import help_command
 from receipts import receipts_command
+from search import search_command
 from summary import summary_command
 
 
@@ -60,6 +61,10 @@ async def setup_bot_commands(
         BotCommand(
             command="receipts",
             description="Lihat resit terkini",
+        ),
+        BotCommand(
+            command="search",
+            description="Cari rekod resit",
         ),
         BotCommand(
             command="summary",
@@ -108,6 +113,13 @@ def main() -> None:
         CommandHandler(
             "receipts",
             receipts_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "search",
+            search_command,
         )
     )
 
