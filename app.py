@@ -201,11 +201,11 @@ async def setup_bot_commands(
         ),
         BotCommand(
             "upgrade",
-            "Lihat dan pilih pelan",
+            "Naik taraf pelan Biscotto ReceiptBot",
         ),
         BotCommand(
             "help",
-            "Lihat panduan penggunaan",
+            "Panduan Biscotto ReceiptBot",
         ),
     ]
 
