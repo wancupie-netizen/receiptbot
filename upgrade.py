@@ -215,7 +215,7 @@ def format_upgrade_message(
 
     elif PAYMENT_PROVIDER == "BAYARCASH":
         payment_notice = (
-            "💳 Pembayaran akan diproses "
+            "💳 Pembayaran diproses dengan selamat "
             "melalui BayarCash."
         )
 
@@ -225,7 +225,7 @@ def format_upgrade_message(
         )
 
     return (
-        "🚀 Upgrade ReceiptBot\n\n"
+        "🚀 Upgrade Biscotto ReceiptBot\n\n"
         "Pilih pelan yang sesuai dengan "
         "keperluan anda.\n\n"
         "━━━━━━━━━━━━━━\n\n"
