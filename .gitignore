@@ -1,6 +1,43 @@
+# Python virtual environment
 .venv/
+venv/
+env/
+
+# Environment secrets
 .env
+.env.*
+!.env.example
+
+# Python cache
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editors
 .vscode/
+.idea/
+
+# ReceiptBot temporary files
 temp_receipts/
+
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Supabase local temporary files
+supabase/.temp/
+.supabase/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

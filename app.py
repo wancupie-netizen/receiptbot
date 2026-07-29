@@ -11,6 +11,10 @@ from telegram.ext import (
 )
 
 from account import account_command
+from bayarcash_checkout import (
+    CALLBACK_BAYARCASH_CONFIRM_PREFIX,
+    handle_bayarcash_checkout_action,
+)
 from billing_profile import (
     BILLING_CONFIRM,
     BILLING_EMAIL,
@@ -88,12 +92,24 @@ def setup_payment_gateway() -> None:
         )
         return
 
+    if PAYMENT_PROVIDER == "BAYARCASH":
+        configure_payment_gateway(
+            NotConfiguredPaymentGateway()
+        )
+
+        logger.warning(
+            "BayarCash aktif untuk Payment Intent. "
+            "Pengaktifan subscription melalui "
+            "webhook belum dipasang."
+        )
+        return
+
     configure_payment_gateway(
         NotConfiguredPaymentGateway()
     )
 
     logger.warning(
-        "Payment gateway production belum dipasang. "
+        "Payment gateway belum dikonfigurasi. "
         "Provider semasa: %s",
         PAYMENT_PROVIDER,
     )
@@ -293,6 +309,17 @@ def main() -> None:
             ),
         )
     )
+
+    if PAYMENT_PROVIDER == "BAYARCASH":
+        application.add_handler(
+            CallbackQueryHandler(
+                handle_bayarcash_checkout_action,
+                pattern=(
+                    "^"
+                    f"{CALLBACK_BAYARCASH_CONFIRM_PREFIX}"
+                ),
+            )
+        )
 
     application.add_handler(
         CallbackQueryHandler(
