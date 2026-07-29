@@ -94,14 +94,23 @@ async def start(
         if is_new_user:
             message = (
                 f"Selamat datang, {name} 👋\n\n"
-                "Akaun ReceiptBot anda sudah disediakan.\n"
-                "Anda boleh hantar gambar resit di sini."
+                "Akaun ReceiptBot anda sudah disediakan.\n\n"
+                "📸 Hantar gambar resit untuk mula merekod "
+                "perbelanjaan anda.\n\n"
+                "🔒 Privacy First\n\n"
+                "Kami percaya data kewangan adalah "
+                "maklumat peribadi.\n\n"
+                "Data anda kekal milik anda dan kami tidak "
+                "menjual data pengguna kepada pihak ketiga."
             )
         else:
             message = (
                 f"Selamat kembali, {name} 👋\n\n"
-                "ReceiptBot sedang aktif.\n"
-                "Hantar gambar resit untuk mula."
+                "ReceiptBot sedang aktif.\n\n"
+                "📸 Hantar gambar resit untuk mula.\n\n"
+                "🔒 Privacy First\n\n"
+                "Data anda kekal milik anda dan kami tidak "
+                "menjual data pengguna kepada pihak ketiga."
             )
 
         await update.message.reply_text(message)
@@ -279,7 +288,16 @@ def format_saved_preview(
         f"💰 Jumlah\nRM{receipt.total:,.2f}\n\n"
         f"📂 Kategori\n{receipt.category}\n"
         "──────────────\n\n"
-        "Rekod perbelanjaan anda telah dikemas kini."
+        "📋 Rekod anda telah berjaya disimpan.\n\n"
+        "🔒 Privacy First\n\n"
+        "Kami percaya rekod kewangan adalah maklumat "
+        "peribadi.\n\n"
+        "• Data adalah milik anda.\n"
+        "• Kami tidak menjual data pengguna kepada pihak "
+        "ketiga.\n"
+        "• Resit digunakan hanya untuk menyediakan "
+        "perkhidmatan ReceiptBot.\n\n"
+        "Terima kasih kerana mempercayai ReceiptBot ❤️"
     )
 
 
