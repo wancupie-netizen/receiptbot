@@ -106,7 +106,7 @@ async def start(
         else:
             message = (
                 f"Selamat kembali, {name} 👋\n\n"
-                "Biscott ReceiptBot sedia membantu merekod perbelanjaan anda.\n\n"
+                "Biscotto ReceiptBot sedia membantu merekod perbelanjaan anda.\n\n"
                 "📸 Hantar gambar resit untuk mula.\n\n"
                 "🔒 Privacy First\n\n"
                 "Data anda kekal milik anda dan kami tidak "
