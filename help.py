@@ -8,11 +8,11 @@ logger = logging.getLogger(__name__)
 
 
 HELP_MESSAGE = """
-🤖 ReceiptBot
+🤖 Biscotto ReceiptBot
 
-Selamat datang ke ReceiptBot.
+Selamat datang ke Biscotto ReceiptBot.
 
-ReceiptBot membantu anda menyimpan
+Biscotto ReceiptBot membantu anda menyimpan
 resit dan merekod perbelanjaan
 terus daripada Telegram.
 
@@ -22,7 +22,7 @@ terus daripada Telegram.
 
 1️⃣ Hantar gambar resit.
 
-2️⃣ AI ReceiptBot akan membaca maklumat pada resit.
+2️⃣ AI Biscotto ReceiptBot akan membaca maklumat pada resit.
 
 3️⃣ Semak dan betulkan jika perlu.
 
@@ -57,7 +57,7 @@ Maklumat akaun
 Urus maklumat pembayaran
 
 /upgrade
-Lihat dan pilih pelan ReceiptBot
+Naik taraf pelan Biscotto ReceiptBot
 
 /help
 Paparan bantuan
@@ -76,7 +76,7 @@ Billing Profile menyimpan:
 • Nombor telefon
 
 Maklumat ini diperlukan sebelum
-ReceiptBot boleh menghasilkan
+Biscotto ReceiptBot boleh menghasilkan
 pautan pembayaran.
 
 Gunakan /cancel untuk membatalkan
@@ -105,11 +105,21 @@ pelan Starter dan Business.
 Gunakan:
 /export_csv
 
-ReceiptBot akan menghasilkan fail CSV
+Biscotto ReceiptBot akan menghasilkan fail CSV
 yang mengandungi semua rekod resit anda.
 
 Export CSV tersedia untuk
 pelan Starter dan Business.
+
+━━━━━━━━━━━━━━
+
+🔒 Privacy First
+
+Data anda kekal milik anda.
+
+Kami tidak menjual atau berkongsi 
+data peribadi anda kepada
+pihak ketiga.
 
 ━━━━━━━━━━━━━━
 
@@ -142,7 +152,7 @@ RM19.90 — 500 resit / bulan
 ━━━━━━━━━━━━━━
 
 Terima kasih menggunakan
-ReceiptBot ❤️
+Biscotto ReceiptBot ❤️
 """.strip()
 
 
